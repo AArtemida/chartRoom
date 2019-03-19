@@ -1,0 +1,10 @@
+vue init webpack chartroom
+cd chartroom
+npm install express
+npm install socket.io --save
+add server
+npm run build
+cd server
+node main.js
+cd ./
+// npm install mysql --save

@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>chartroom</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <!-- built files will be auto injected -->
+    <script src="static/js/socket.io.js"></script>
+	<script type="text/javascript">
+
+	    var socket=io.connect('http://localhost:4001');
+	    socket.on('notice', function (info) {
+		    console.log('这是来自服务端的消息：'+info);
+		});
+	</script>
+
+  </body>
+</html>
