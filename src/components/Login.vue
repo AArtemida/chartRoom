@@ -1,7 +1,7 @@
 <template>
   <div class="login">
     <h3>Welcome to Chart</h3>
-    <div class="photo">
+    <div class="photo" :style="{background:getRandomColor}">
       <img v-if="photo" :src="photo"/>
       <span v-else>N</span>
     </div>
@@ -21,14 +21,21 @@ export default {
       username: ''
     }
   },
+  computed: {
+    // 生成随机颜色
+    getRandomColor () {
+      return '#' + (Math.random() * 0xffffff << 0).toString(16)
+    }
+  },
   methods: {
     enterChart () {
       if (this.username === '') return
       // this.$router.push({ name: 'chart', params: { user: this.username }})
       let id = this.createRandomId()
-      socket.emit('login', {name: this.username, id: id})
+      let color = this.getRandomColor
+      socket.emit('login', {name: this.username, id: id, color: color})
       setTimeout(() => {
-        this.$router.push({path: '/chart', query: {name: this.username, id: id}})
+        this.$router.push({path: '/chart', query: {name: this.username, id: id, color: color}})
       })
     },
     // 生成id

@@ -89,7 +89,7 @@ io.on('connection', function (socket) {
         message.socketid = socket.id;
         // if(message.type == 'chartroom') {}
         msgList.push(message);
-        io.emit('message', msgList);
+        io.emit('message', message);
     })
 });
 

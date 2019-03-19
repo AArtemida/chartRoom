@@ -1,11 +1,15 @@
 <template>
   <div class="chart clearfix">
     <div class="left-box">
+      <div class="search-box">
+        <input type="text" name="" v-model="searchWord" @keyup.enter="filterUser"/>
+        <i class="iconfont icon-sousuo" @click="filterUser"></i>
+      </div>
       <ul v-if="userList.length>0" v-cloak>
-        <li v-for="(item,index) in userList" :class="index==selectUserIndex?'current':''" :key="'user'+index">
-          <div class="user_photo">
+        <li v-for="(item,index) in userList" :class="index==selectUserIndex?'current':''" :key="'user'+index" @click="changeChart(index)">
+          <div class="user_photo" :style="{background:item.color?item.color:'#FFD09C'}">
             <img v-if="item.photo" :src="item.photo"/>
-            <span v-else>N</span>
+            <span v-else>{{getUserNameOne(item)}}</span>
           </div>
           <div class="user_info">
             <p>{{item.name}}<span class="msg_time"></span></p>
@@ -16,15 +20,15 @@
     </div>
     <div class="right-box">
       <h3>
-        <span>{{selectUser.name}}</span>
-        <i class="logout" @click="logout">X</i>
+        <span>{{selectUser.name}}<i class="chartNum" v-if="selectUser.id=='chartroom'">({{userList.length - 1}}人)</i></span>
+        <i class="logout iconfont icon-chahao" @click="logout"></i>
       </h3>
       <div class="msg-box">
         <ul v-if="msgList.length > 0" class="clearfix">
           <li v-for="(msg,index) in msgList" :class="msg.user.id == myUser.id?'my-msg':''" :key="'msg'+index">
-            <div class="user_photo">
+            <div class="user_photo" :style="{background:msg.user.color?msg.user.color:'#FFD09C'}">
               <img v-if="msg.user.photo" :src="msg.user.photo"/>
-              <span v-else>N</span>
+              <span v-else>{{getUserNameOne(msg.user)}}</span>
             </div>
             <div class="msg_content">
               <div class="msg-top" v-if="msg.user"><span>{{msg.user.name}}</span><span>{{msg.time}}</span></div>
@@ -34,7 +38,7 @@
         </ul>
       </div>
       <div class="input-box">
-        <div class="input-top-box"></div>
+        <div class="input-top-box"><i class="iconfont icon-biaoqing"></i></div>
         <textarea v-model.trim="msg" @keyup.enter="sendMsg"></textarea>
         <button id="send-btn" @click="sendMsg">发送</button>
       </div>
@@ -54,7 +58,8 @@ export default {
       }],
       msg: '',
       msgList: [],
-      notice: ''
+      notice: '',
+      searchWord: ''
     }
   },
   computed: {
@@ -93,9 +98,9 @@ export default {
       this.notice = info.user + '离开了'
     })
     // 接收消息
-    socket.on('message', msglist => {
-      console.log(msglist)
-      this.msgList = msglist;
+    socket.on('message', msg => {
+      console.log(msg)
+      this.msgList.push(msg)
     })
   },
   methods: {
@@ -103,9 +108,9 @@ export default {
     sendMsg () {
       if (this.msg === '') return
       // this.msgList.push({
-        // user: this.myUser,
-        // time: this.getNowTime(),
-        // context: this.msg
+      // user: this.myUser,
+      // time: this.getNowTime(),
+      // context: this.msg
       // })
       socket.emit('message', {
         user: this.myUser,
@@ -124,6 +129,17 @@ export default {
       let t = new Date()
       let time = t.getHours() + ':' + t.getMinutes()
       return time
+    },
+    // 选择聊天对象
+    changeChart (index) {
+      this.selectUserIndex = index
+    },
+    getUserNameOne (user) {
+      return user.name ? user.name.substr(0, 1) : 'N'
+    },
+    // 过滤
+    filterUser () {
+      if (this.searchWord === '') return
     }
   }
 }
@@ -143,36 +159,68 @@ export default {
   -webkit-transform: translate(-50%,-50%);
   box-shadow: 0 0 10px 0 #999;
 }
+.chartNum{
+  font-style:normal;
+  font-weight:normal;
+  font-size:16px;
+  margin-left:10px;
+}
 .left-box{
   width: 310px;
   height: 100%;
   float: left;
   background: #ebe9e8;
 }
+.search-box{
+  width: 226px;
+  height: 25px;
+  margin: 25px auto 0;
+  position: relative;
+}
+.search-box .iconfont{
+  position: absolute;
+  top: 5px;
+  right: 6px;
+  cursor:pointer;
+  color:#999;
+}
+.search-box input{
+  background: #e5e2e2;
+  box-sizing: border-box;
+  border: 1px solid #c7c7c7;
+  height: 100%;
+  width: 98%;
+  outline: none;
+  font-size: 12px;
+  padding-left: 4px;
+  padding-right:24px;
+}
+.search-box input:hover{border-color:#1aad19;}
+.search-box input:focus{background:#eee;color:#333;}
 .left-box ul{
-  padding:30px 10px;
+  padding:15px 10px;
 }
 .left-box li{
   width: 100%;
-    height: 64px;
-    padding: 12px;
-    box-sizing: border-box;
-    position: relative;
+  height: 64px;
+  padding: 12px;
+  box-sizing: border-box;
+  position: relative;
 }
 .left-box li.current{
   background: #c9c9c9;
 }
 .left-box li .user_photo{
   width: 40px;
-    height: 40px;
+  height: 40px;
 }
 .left-box li .user_info{
-    height: 40px;
-    font-size: 14px;
-    float: left;
-    color: #111;
-    padding-left: 10px;
-    box-sizing: border-box;
+  height: 40px;
+  font-size: 14px;
+  float: left;
+  color: #111;
+  padding-left: 10px;
+  box-sizing: border-box;
 }
 .last_msg{
   overflow: hidden;
@@ -189,15 +237,15 @@ export default {
 }
 .right-box>h3{
   width: 100%;
-    height: 42px;
-    border-bottom: 1px solid #e1e1e1;
-    position: relative;
-    margin: 0;
-    padding-top: 20px;
+  height: 42px;
+  border-bottom: 1px solid #e1e1e1;
+  position: relative;
+  margin: 0;
+  padding-top: 20px;
 }
 .right-box>h3>span{
   float: left;
-    margin-left: 20px;
+  margin-left: 20px;
 }
 .msg-box{
   padding: 0 30px;
@@ -213,10 +261,10 @@ export default {
 }
 li .user_photo{
   width: 36px;
-    height: 36px;
-    margin-top: 4px;
-    float: left;
-    background: #FFD09C;
+  height: 36px;
+  margin-top: 4px;
+  float: left;
+  background: #FFD09C;
   text-align:center;
   color:#fff;
 }
@@ -231,9 +279,9 @@ li .user_photo>span{
 }
 .msg-box .msg_content{
   float: left;
-    max-width: 304px;
-    margin-left: 10px;
-    word-break:break-all;
+  max-width: 304px;
+  margin-left: 10px;
+  word-break:break-all;
 }
 .msg-box .msg-top{
   font-size: 12px;
@@ -265,15 +313,21 @@ li .user_photo>span{
 }
 .input-top-box{
   width: 100%;
-    height: 40px;
-    padding: 14px 0 0 30px;
-    box-sizing: border-box;
-    position: relative;
+  height: 36px;
+  padding: 8px 0 0 20px;
+  box-sizing: border-box;
+  position: relative;
+}
+.input-top-box .iconfont{
+  float: left;
+  font-size: 20px;
+  cursor:pointer;
+  color:#666;
 }
 .input-box textarea{
   width: 554px;
   height: 68px;
-  margin-left: 30px;
+  margin-left: 20px;
   outline: none;
   resize: none;
   font-size: 14px;
@@ -298,21 +352,21 @@ li .user_photo>span{
   outline:0;
 }
 #send-btn:hover {
-    background: #129611;
-    color: #fff;
-    border: 1px solid #129611;
+  background: #129611;
+  color: #fff;
+  border: 1px solid #129611;
 }
 .logout{
   float:right;
-  font-size:13px;
-  color:#999;
-  margin-right:20px;
+  font-size:18px;
+  color:#bbb;
+  margin-right:10px;
   cursor:pointer;
   font-weight:normal;
   font-style: inherit;
 }
 
 .logout:hover{
-  color:#129611;
+  color:#888;
 }
 </style>
