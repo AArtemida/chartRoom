@@ -41,6 +41,8 @@ let userList = [{
     }
 }];
 let msgList = [];
+let msgObj = {};
+var allsocket = {};
 // 新用户连接进来时
 io.on('connection', function (socket) {
     var theId = socket.id;
@@ -62,6 +64,7 @@ io.on('connection', function (socket) {
         console.log('有一个人进来了,'+'现在有'+onlieCount+'人在线！');
         io.emit('connected',userList);
     });
+    allsocket[theId] = socket;
     io.emit('connected',userList);
 
     // 当有用户断开时
@@ -87,9 +90,17 @@ io.on('connection', function (socket) {
     socket.on('message', function(message) {
         // message.usermsg.time = new Date().getTime();
         message.socketid = socket.id;
-        // if(message.type == 'chartroom') {}
-        msgList.push(message);
-        io.emit('message', message);
+        if(message.type == 'chartroom') {
+            msgList.push(message);
+            io.emit('message', message);
+        }else{
+            let selectId = message.to.id;
+            if(selectId) {
+                allsocket[selectId].emit('message', message);
+            } else {
+                io.emit('message', message);
+            }
+        }
     })
 });
 

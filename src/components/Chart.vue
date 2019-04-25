@@ -1,35 +1,39 @@
 <template>
   <div class="chart clearfix">
-    <div class="left-box">
-      <div class="search-box">
-        <input type="text" name="" v-model="searchWord" @keyup.enter="filterUser"/>
-        <i class="iconfont icon-sousuo" @click="filterUser"></i>
+    <div class="left-box clearfix">
+      <div class="userinfo">
+        <user-photo :user="myUser"></user-photo>
       </div>
-      <ul v-if="userList.length>0" v-cloak>
-        <li v-for="(item,index) in userList" :class="index==selectUserIndex?'current':''" :key="'user'+index" @click="changeChart(index)">
-          <div class="user_photo" :style="{background:item.color?item.color:'#FFD09C'}">
-            <img v-if="item.photo" :src="item.photo"/>
-            <span v-else>{{getUserNameOne(item)}}</span>
-          </div>
-          <div class="user_info">
-            <p>{{item.name}}<span class="msg_time"></span></p>
-            <div class="last_msg"></div>
-          </div>
-        </li>
-      </ul>
+      <div class="float_l" style="width: calc(100% - 60px);">
+        <div class="search-box">
+          <input type="text" name="" v-model="searchWord"/>
+          <i class="iconfont icon-sousuo"></i>
+        </div>
+        <!--用户列表-->
+        <ul v-if="userList.length>0" v-cloak>
+          <li v-for="(item,index) in userList" :class="index==selectUserIndex?'current':''" 
+            v-show="item.name.indexOf(searchWord)>-1"
+            :key="'user'+index" @click="changeChart(index,item)">
+            <user-photo :user="item"></user-photo>
+            <div class="red_dot" v-show="currentMsg.indexOf(item.id) > -1"></div>
+            <div class="user_info">
+              <p>{{item.name}}<span class="msg_time"></span></p>
+              <div class="last_msg"></div>
+            </div>
+          </li>
+        </ul>
+      </div>
     </div>
     <div class="right-box">
       <h3>
         <span>{{selectUser.name}}<i class="chartNum" v-if="selectUser.id=='chartroom'">({{userList.length - 1}}人)</i></span>
         <i class="logout iconfont icon-chahao" @click="logout"></i>
       </h3>
+      <!--消息-->
       <div class="msg-box">
         <ul v-if="msgList.length > 0" class="clearfix">
           <li v-for="(msg,index) in msgList" :class="msg.user.id == myUser.id?'my-msg':''" :key="'msg'+index">
-            <div class="user_photo" :style="{background:msg.user.color?msg.user.color:'#FFD09C'}">
-              <img v-if="msg.user.photo" :src="msg.user.photo"/>
-              <span v-else>{{getUserNameOne(msg.user)}}</span>
-            </div>
+            <user-photo :user="msg.user"></user-photo>
             <div class="msg_content">
               <div class="msg-top" v-if="msg.user"><span>{{msg.user.name}}</span><span>{{msg.time}}</span></div>
               <div class="msg-text">{{msg.context}}</div>
@@ -37,6 +41,7 @@
           </li>
         </ul>
       </div>
+      <!--输入框-->
       <div class="input-box">
         <div class="input-top-box"><i class="iconfont icon-biaoqing"></i></div>
         <textarea v-model.trim="msg" @keyup.enter="sendMsg"></textarea>
@@ -47,8 +52,12 @@
 </template>
 
 <script>
+import userPhoto from './photo'
 export default {
   name: 'chart',
+  components:{
+    'user-photo':userPhoto
+  },
   data () {
     return {
       selectUserIndex: 0,
@@ -57,9 +66,11 @@ export default {
         id: 'chartroom'
       }],
       msg: '',
-      msgList: [],
+     // msgList: [],
       notice: '',
-      searchWord: ''
+      searchWord: '',
+      msgObj: {},
+      currentMsg: []
     }
   },
   computed: {
@@ -73,20 +84,34 @@ export default {
     myUser () {
       // console.log(this.$route.query)
       return Object.assign({}, this.$route.query)
+    },
+    msgList () {
+      return this.selectUser.id && this.msgObj[this.selectUser.id] ? this.msgObj[this.selectUser.id] : [];
+    },
+    allUserIdList () {
+      let arr = this.userList.map(val => val.id);
+      return arr;
     }
   },
   mounted () {
+    let _this = this;
     this.$nextTick(t => {
+      let userlist = localStorage.getItem("userList");
+      if(userlist!=null){
+        userlist = JSON.parse(userlist);
+        this.userList = userlist;
+      }
       this.userList.push(this.myUser)
     })
 
     socket.on('notice2', info => {
-      console.log('notice2')
+     // localStorage.setItem("userList",JSON.stringify(info));
       this.userList = info
     })
     // 当接收到有人连接进来
     socket.on('connected', info => {
       console.log(info)
+     // localStorage.setItem("userList",JSON.stringify(info));
       this.userList = info
     })
     // 当接收到有人断开后
@@ -94,30 +119,69 @@ export default {
       // if(info == this.chat_title){
       // this.currentChat = 0;}
       console.log(info)
+     // localStorage.setItem("userList",JSON.stringify(info.list));
       this.userList = info.list
       this.notice = info.user + '离开了'
     })
     // 接收消息
     socket.on('message', msg => {
-      console.log(msg)
-      this.msgList.push(msg)
+      // console.log(msg)
+      if(msg.type == 'chartroom'){
+        if(!this.msgObj['chartroom']){
+          this.$set(this.msgObj,'chartroom',[])
+        }
+        this.msgObj['chartroom'].push(msg);
+
+        // 加入新消息提醒
+        if(this.currentMsg.indexOf('chartroom') == -1 && this.selectUser.id != 'chartroom'){
+          this.currentMsg.push('chartroom');
+        }
+      }else if(msg.type == 'single'){
+        let toId = msg.to.id, userId = msg.user.id, theId = null;
+        // 被接收
+        if(toId == this.myUser.id){
+          // 用户列表不全
+          if(this.allUserIdList.indexOf(userId) == -1){
+            this.userList.push(msg.user);
+          }
+          theId = userId;
+        // 发送方
+        }else if(userId == this.myUser.id){
+          theId = toId;
+        }
+        if(!this.msgObj[theId]){
+          this.$set(this.msgObj,theId,[])
+        }
+        this.msgObj[theId].push(msg);
+
+        // 加入新消息提醒
+        if(this.currentMsg.indexOf(theId) == -1 && this.selectUser.id != theId){
+          this.currentMsg.push(theId);
+        }
+      }
     })
   },
   methods: {
     // 发送消息
     sendMsg () {
       if (this.msg === '') return
-      // this.msgList.push({
-      // user: this.myUser,
-      // time: this.getNowTime(),
-      // context: this.msg
-      // })
-      socket.emit('message', {
-        user: this.myUser,
-        time: this.getNowTime(),
-        context: this.msg,
-        type: 'chartroom'
-      })
+      if(this.selectUser.id=='chartroom'){
+        socket.emit('message', {
+          user: this.myUser,
+          time: this.getNowTime(),
+          context: this.msg,
+          type: 'chartroom'
+        })
+      }else{
+        socket.emit('message', {
+          user: this.myUser,
+          time: this.getNowTime(),
+          context: this.msg,
+          type: 'single',
+          to:this.selectUser
+        })
+      }
+
       this.msg = ''
     },
     // 退出
@@ -131,15 +195,21 @@ export default {
       return time
     },
     // 选择聊天对象
-    changeChart (index) {
-      this.selectUserIndex = index
+    changeChart (index,user) {
+      this.selectUserIndex = index;
+      // 去掉新消息
+      if(this.currentMsg.indexOf(user.id) > -1){
+        let i = this.currentMsg.indexOf(user.id);
+        this.currentMsg.splice(i,1);
+      }
     },
     getUserNameOne (user) {
       return user.name ? user.name.substr(0, 1) : 'N'
     },
     // 过滤
     filterUser () {
-      if (this.searchWord === '') return
+      if (this.searchWord === '') return;
+
     }
   }
 }
@@ -170,6 +240,17 @@ export default {
   height: 100%;
   float: left;
   background: #ebe9e8;
+}
+.userinfo{
+  width: 60px;
+  height: 100%;
+  background: #2c2726;
+  float: left;
+  position: relative;
+}
+.userinfo>.user_photo{
+  margin: 18px auto;
+  float: none;
 }
 .search-box{
   width: 226px;
@@ -222,6 +303,15 @@ export default {
   padding-left: 10px;
   box-sizing: border-box;
 }
+.red_dot{
+  background:#ef3636;
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  position: absolute;
+  left: 47px;
+  top: 14px;
+}
 .last_msg{
   overflow: hidden;
   text-overflow: ellipsis;
@@ -258,24 +348,6 @@ export default {
   float: left;
   width: 350px;
   margin-top: 12px;
-}
-li .user_photo{
-  width: 36px;
-  height: 36px;
-  margin-top: 4px;
-  float: left;
-  background: #FFD09C;
-  text-align:center;
-  color:#fff;
-}
-li .user_photo>img{
-  height:100%;
-  width:100%；
-}
-li .user_photo>span{
-  line-height:36px;
-  font-weight:bold;
-  font-size:20px;
 }
 .msg-box .msg_content{
   float: left;
