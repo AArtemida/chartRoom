@@ -98,7 +98,7 @@ export default {
     }
   },
   mounted () {
-    // let _this = this
+    let _this = this
     this.$nextTick(t => {
       let userlist = localStorage.getItem('userList')
       if (userlist !== null) {
@@ -122,68 +122,64 @@ export default {
     socket.on('disconnected', info => {
       console.log(info)
       // localStorage.setItem("userList",JSON.stringify(info.list));
-      this.userList = info.list.splice(info.index, 1)
-      this.notice = info.user + '离开了~'
+      _this.userList = info.list.splice(info.index, 1)
+      _this.notice = info.user + '离开了~'
       setTimeout(() => {
-        this.notice = null
+        _this.notice = null
       }, 6000)
     })
     // 当有人退出登录
     socket.on('logouted', info => {
       // localStorage.setItem("userList",JSON.stringify(info.list));
-      this.userList = info.list
-      this.notice = info.user + '离开了~'
+      _this.userList = info.list
+      _this.notice = info.user + '离开了~'
       setTimeout(() => {
-        this.notice = null
+        _this.notice = null
       }, 6000)
     })
     // 接收消息
     socket.on('message', msg => {
       // console.log(msg)
       if (msg.type === 'chartroom') {
-        if (!this.msgObj['chartroom']) {
-          this.$set(this.msgObj, 'chartroom', [])
+        if (!_this.msgObj['chartroom']) {
+          _this.$set(_this.msgObj, 'chartroom', [])
         }
-        this.msgObj['chartroom'].push(msg)
+        _this.msgObj['chartroom'].push(msg)
 
         // 加入新消息提醒
-        if (this.currentMsg.indexOf('chartroom') === -1) {
-          if (this.selectUser.id !== 'chartroom') {
-            this.currentMsg.push('chartroom')
-          }
-          this.$set(this.lastMsgList, 'chartroom', {text: msg.context, time: msg.time})
+        if (_this.currentMsg.indexOf('chartroom') === -1 && _this.selectUser.id !== 'chartroom') {
+          _this.currentMsg.push('chartroom')
         }
+        _this.$set(_this.lastMsgList, 'chartroom', {text: msg.context, time: msg.time})
       } else if (msg.type === 'single') {
         let toId = msg.to.id
         let userId = msg.user.id
         let theId = null
         // 被接收
-        if (toId == this.myUser.id) {
+        if (toId == _this.myUser.id) {
           // 用户列表不全
-          if (this.allUserIdList.indexOf(userId) == -1) {
-            this.userList.push(msg.user)
+          if (_this.allUserIdList.indexOf(userId) == -1) {
+            _this.userList.push(msg.user)
           }
           theId = userId
         // 发送方
-        } else if (userId == this.myUser.id) {
+        } else if (userId == _this.myUser.id) {
           theId = toId
         }
-        if (!this.msgObj[theId]) {
-          this.$set(this.msgObj, theId, [])
+        if (!_this.msgObj[theId]) {
+          _this.$set(_this.msgObj, theId, [])
         }
-        this.msgObj[theId].push(msg)
+        _this.msgObj[theId].push(msg)
 
         // 加入新消息提醒
-        if (this.currentMsg.indexOf(theId) == -1) {
-          if (this.selectUser.id != theId) {
-            this.currentMsg.push(theId)
-          }
-          this.$set(this.lastMsgList, theId, {text: msg.context, time: msg.time})
+        if (_this.currentMsg.indexOf(theId) === -1 && _this.selectUser.id != theId) {
+          _this.currentMsg.push(theId)
         }
+        _this.$set(_this.lastMsgList, theId, {text: msg.context, time: msg.time});
       }
     })
 
-    // 监听后退
+    // 后退
     window.onpopstate = function (event) {
       window.location.href = window.location.href.split('#')[0]
     }
