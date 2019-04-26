@@ -61,10 +61,11 @@ io.on('connection', function (socket) {
         });
         userList.push(obj);
 
-        console.log('有一个人进来了,'+'现在有'+onlieCount+'人在线！');
+        console.log(user.name+'进来了,'+'现在有'+onlieCount+'人在线！');
         io.emit('connected',userList);
     });
     allsocket[theId] = socket;
+
     io.emit('connected',userList);
 
     // 当有用户断开时
@@ -79,13 +80,30 @@ io.on('connection', function (socket) {
         if(userList[theIndex]){
             var theUserName = userList[theIndex].name;
             console.log(theUserName+'离开了,'+'现在有'+onlieCount+'人在线！');
-            socket.emit('disconnected',{list:userList,user:theUserName});
+            socket.emit('disconnected',{list:userList,user:theUserName,index:theIndex});
             userList.splice(theIndex,1);//删除该用户
         }else{
             console.log('有一个人离开了,'+'现在有'+onlieCount+'人在线！');
         }
     });
 
+    //退出登录
+    socket.on('logout', function (user) {
+        if(onlieCount > 0){
+            onlieCount --;
+        }
+        var theIndex = userList.findIndex(val => {
+            return socket.id == val.socketId;
+        })
+        if(userList[theIndex]){
+            var theUserName = user.name;
+            console.log(theUserName+'退出登录,'+'现在有'+onlieCount+'人在线！');
+            userList.splice(theIndex,1);//删除该用户
+            io.emit('logouted',{list:userList,user:theUserName});
+        }else{
+            console.log('有一个人退出登录,'+'现在有'+onlieCount+'人在线！');
+        }
+    })
     // 收到了客户端发来的消息
     socket.on('message', function(message) {
         // message.usermsg.time = new Date().getTime();
@@ -94,9 +112,14 @@ io.on('connection', function (socket) {
             msgList.push(message);
             io.emit('message', message);
         }else{
-            let selectId = message.to.id;
+            let selectId = message.to.socketId;
             if(selectId) {
-                allsocket[selectId].emit('message', message);
+                if(allsocket[selectId]){
+                    allsocket[selectId].emit('message', message);
+                }
+                if(selectId != socket.id && allsocket[socket.id]){
+                    allsocket[socket.id].emit('message', message);
+                }
             } else {
                 io.emit('message', message);
             }

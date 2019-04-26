@@ -4,17 +4,17 @@
     <span v-else>{{getUserNameOne(user)}}</span>
   </div>
 </template>
-	
+
 <script>
 export default {
-  props:['user'],
-  data(){
+  props: ['user'],
+  data () {
     return {}
   },
-  methods:{
+  methods: {
     getUserNameOne (user) {
       return user.name ? user.name.substr(0, 1) : 'N'
-    },
+    }
   }
 }
 </script>

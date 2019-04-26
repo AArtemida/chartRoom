@@ -3,6 +3,7 @@
     <div class="left-box clearfix">
       <div class="userinfo">
         <user-photo :user="myUser"></user-photo>
+        <p class="username">{{myUser.name}}</p>
       </div>
       <div class="float_l" style="width: calc(100% - 60px);">
         <div class="search-box">
@@ -10,24 +11,27 @@
           <i class="iconfont icon-sousuo"></i>
         </div>
         <!--用户列表-->
-        <ul v-if="userList.length>0" v-cloak>
-          <li v-for="(item,index) in userList" :class="index==selectUserIndex?'current':''" 
-            v-show="item.name.indexOf(searchWord)>-1"
-            :key="'user'+index" @click="changeChart(index,item)">
-            <user-photo :user="item"></user-photo>
-            <div class="red_dot" v-show="currentMsg.indexOf(item.id) > -1"></div>
-            <div class="user_info">
-              <p>{{item.name}}<span class="msg_time"></span></p>
-              <div class="last_msg"></div>
-            </div>
-          </li>
-        </ul>
+        <div class="user-list">
+          <ul v-if="userList.length>0" v-cloak>
+            <li v-for="(item,index) in userList" :class="index==selectUserIndex?'current':''"
+              v-show="item.name.indexOf(searchWord)>-1"
+              :key="'user'+index" @click="changeChart(index,item)">
+              <user-photo :user="item"></user-photo>
+              <div class="red_dot" v-show="currentMsg.indexOf(item.id) > -1"></div>
+              <div class="user_info">
+                <p>{{item.name}}<span class="msg_time" v-if="lastMsgList[item.id]">{{lastMsgList[item.id].time}}</span></p>
+                <div class="last_msg" v-if="lastMsgList[item.id]">{{lastMsgList[item.id].text}}</div>
+              </div>
+            </li>
+          </ul>
+        </div>
       </div>
     </div>
     <div class="right-box">
       <h3>
         <span>{{selectUser.name}}<i class="chartNum" v-if="selectUser.id=='chartroom'">({{userList.length - 1}}人)</i></span>
         <i class="logout iconfont icon-chahao" @click="logout"></i>
+        <p class="notices" v-show="notice">{{notice}}</p>
       </h3>
       <!--消息-->
       <div class="msg-box">
@@ -55,8 +59,8 @@
 import userPhoto from './photo'
 export default {
   name: 'chart',
-  components:{
-    'user-photo':userPhoto
+  components: {
+    'user-photo': userPhoto
   },
   data () {
     return {
@@ -66,11 +70,11 @@ export default {
         id: 'chartroom'
       }],
       msg: '',
-     // msgList: [],
-      notice: '',
+      notice: null,
       searchWord: '',
       msgObj: {},
-      currentMsg: []
+      currentMsg: [],
+      lastMsgList: {}
     }
   },
   computed: {
@@ -86,99 +90,122 @@ export default {
       return Object.assign({}, this.$route.query)
     },
     msgList () {
-      return this.selectUser.id && this.msgObj[this.selectUser.id] ? this.msgObj[this.selectUser.id] : [];
+      return this.selectUser.id && this.msgObj[this.selectUser.id] ? this.msgObj[this.selectUser.id] : []
     },
     allUserIdList () {
-      let arr = this.userList.map(val => val.id);
-      return arr;
+      let arr = this.userList.map(val => val.id)
+      return arr
     }
   },
   mounted () {
-    let _this = this;
+    // let _this = this
     this.$nextTick(t => {
-      let userlist = localStorage.getItem("userList");
-      if(userlist!=null){
-        userlist = JSON.parse(userlist);
-        this.userList = userlist;
+      let userlist = localStorage.getItem('userList')
+      if (userlist !== null) {
+        userlist = JSON.parse(userlist)
+        this.userList = userlist
       }
       this.userList.push(this.myUser)
     })
 
     socket.on('notice2', info => {
-     // localStorage.setItem("userList",JSON.stringify(info));
+      // localStorage.setItem("userList",JSON.stringify(info));
       this.userList = info
     })
     // 当接收到有人连接进来
     socket.on('connected', info => {
       console.log(info)
-     // localStorage.setItem("userList",JSON.stringify(info));
+      // localStorage.setItem("userList",JSON.stringify(info));
       this.userList = info
     })
     // 当接收到有人断开后
     socket.on('disconnected', info => {
-      // if(info == this.chat_title){
-      // this.currentChat = 0;}
       console.log(info)
-     // localStorage.setItem("userList",JSON.stringify(info.list));
+      // localStorage.setItem("userList",JSON.stringify(info.list));
+      this.userList = info.list.splice(info.index, 1)
+      this.notice = info.user + '离开了~'
+      setTimeout(() => {
+        this.notice = null
+      }, 6000)
+    })
+    // 当有人退出登录
+    socket.on('logouted', info => {
+      // localStorage.setItem("userList",JSON.stringify(info.list));
       this.userList = info.list
-      this.notice = info.user + '离开了'
+      this.notice = info.user + '离开了~'
+      setTimeout(() => {
+        this.notice = null
+      }, 6000)
     })
     // 接收消息
     socket.on('message', msg => {
       // console.log(msg)
-      if(msg.type == 'chartroom'){
-        if(!this.msgObj['chartroom']){
-          this.$set(this.msgObj,'chartroom',[])
+      if (msg.type === 'chartroom') {
+        if (!this.msgObj['chartroom']) {
+          this.$set(this.msgObj, 'chartroom', [])
         }
-        this.msgObj['chartroom'].push(msg);
+        this.msgObj['chartroom'].push(msg)
 
         // 加入新消息提醒
-        if(this.currentMsg.indexOf('chartroom') == -1 && this.selectUser.id != 'chartroom'){
-          this.currentMsg.push('chartroom');
-        }
-      }else if(msg.type == 'single'){
-        let toId = msg.to.id, userId = msg.user.id, theId = null;
-        // 被接收
-        if(toId == this.myUser.id){
-          // 用户列表不全
-          if(this.allUserIdList.indexOf(userId) == -1){
-            this.userList.push(msg.user);
+        if (this.currentMsg.indexOf('chartroom') === -1) {
+          if (this.selectUser.id !== 'chartroom') {
+            this.currentMsg.push('chartroom')
           }
-          theId = userId;
+          this.$set(this.lastMsgList, 'chartroom', {text: msg.context, time: msg.time})
+        }
+      } else if (msg.type === 'single') {
+        let toId = msg.to.id
+        let userId = msg.user.id
+        let theId = null
+        // 被接收
+        if (toId == this.myUser.id) {
+          // 用户列表不全
+          if (this.allUserIdList.indexOf(userId) == -1) {
+            this.userList.push(msg.user)
+          }
+          theId = userId
         // 发送方
-        }else if(userId == this.myUser.id){
-          theId = toId;
+        } else if (userId == this.myUser.id) {
+          theId = toId
         }
-        if(!this.msgObj[theId]){
-          this.$set(this.msgObj,theId,[])
+        if (!this.msgObj[theId]) {
+          this.$set(this.msgObj, theId, [])
         }
-        this.msgObj[theId].push(msg);
+        this.msgObj[theId].push(msg)
 
         // 加入新消息提醒
-        if(this.currentMsg.indexOf(theId) == -1 && this.selectUser.id != theId){
-          this.currentMsg.push(theId);
+        if (this.currentMsg.indexOf(theId) == -1) {
+          if (this.selectUser.id != theId) {
+            this.currentMsg.push(theId)
+          }
+          this.$set(this.lastMsgList, theId, {text: msg.context, time: msg.time})
         }
       }
     })
+
+    // 监听后退
+    window.onpopstate = function (event) {
+      window.location.href = window.location.href.split('#')[0]
+    }
   },
   methods: {
     // 发送消息
     sendMsg () {
       if (this.msg === '') return
-      if(this.selectUser.id=='chartroom'){
+      if (this.selectUser.id === 'chartroom') {
         socket.emit('message', {
           user: this.myUser,
           time: this.getNowTime(),
           context: this.msg,
           type: 'chartroom'
         })
-      }else{
+      } else {
         socket.emit('message', {
           user: this.myUser,
           time: this.getNowTime(),
           context: this.msg,
           type: 'single',
-          to:this.selectUser
+          to: this.selectUser
         })
       }
 
@@ -186,7 +213,10 @@ export default {
     },
     // 退出
     logout () {
-      this.$router.push({name: 'login'})
+      socket.emit('logout', this.myUser)
+      setTimeout(() => {
+        this.$router.push({name: 'login'})
+      }, 100)
     },
     // 获取当前时间
     getNowTime () {
@@ -195,21 +225,16 @@ export default {
       return time
     },
     // 选择聊天对象
-    changeChart (index,user) {
-      this.selectUserIndex = index;
+    changeChart (index, user) {
+      this.selectUserIndex = index
       // 去掉新消息
-      if(this.currentMsg.indexOf(user.id) > -1){
-        let i = this.currentMsg.indexOf(user.id);
-        this.currentMsg.splice(i,1);
+      if (this.currentMsg.indexOf(user.id) > -1) {
+        let i = this.currentMsg.indexOf(user.id)
+        this.currentMsg.splice(i, 1)
       }
     },
     getUserNameOne (user) {
       return user.name ? user.name.substr(0, 1) : 'N'
-    },
-    // 过滤
-    filterUser () {
-      if (this.searchWord === '') return;
-
     }
   }
 }
@@ -248,9 +273,18 @@ export default {
   float: left;
   position: relative;
 }
+.username{
+  color: #fff;
+  font-size: 12px;
+  max-width: 48px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0 auto;
+}
 .userinfo>.user_photo{
   margin: 18px auto;
   float: none;
+  margin-bottom: 10px;
 }
 .search-box{
   width: 226px;
@@ -278,6 +312,10 @@ export default {
 }
 .search-box input:hover{border-color:#1aad19;}
 .search-box input:focus{background:#eee;color:#333;}
+.user-list{
+  height: 580px;
+  overflow-y: auto;
+}
 .left-box ul{
   padding:15px 10px;
 }
@@ -302,12 +340,22 @@ export default {
   color: #111;
   padding-left: 10px;
   box-sizing: border-box;
+  width: calc(100% - 40px);
+}
+.left-box li .user_info>p{
+  margin: 7px 0 4px 0;
+  text-align: left;
+}
+.msg_time{
+  color: #999;
+  font-size: 12px;
+  float: right;
 }
 .red_dot{
-  background:#ef3636;
-  width:8px;
-  height:8px;
-  border-radius:50%;
+  background: #ef3636;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
   position: absolute;
   left: 47px;
   top: 14px;
@@ -319,6 +367,8 @@ export default {
   font-size: 12px;
   margin-top: 4px;
   color: #999;
+  max-width: 155px;
+  text-align: left;
 }
 .right-box{
   width: 590px;
@@ -337,6 +387,24 @@ export default {
   float: left;
   margin-left: 20px;
 }
+.notices{
+  max-width: 300px;
+  height: 20px;
+  background: #d4d4d4;
+  position: absolute;
+  left: 50%;
+  margin-left: -132px;
+  top: 20px;
+  font-size: 12px;
+  border-radius: 15px;
+  color: #fff;
+  text-align: center;
+  line-height: 20px;
+  padding: 0 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: all .3s linear;
+}
 .msg-box{
   padding: 0 30px;
   box-sizing: border-box;
@@ -348,6 +416,7 @@ export default {
   float: left;
   width: 350px;
   margin-top: 12px;
+  transition: all .3s ease;
 }
 .msg-box .msg_content{
   float: left;
