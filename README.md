@@ -49,9 +49,9 @@ node server
 3. 前端通过socket与服务器通信
 
 ## View
-![image](img/chart.png)
-
 ![image](img/login.png)
+
+![image](img/chart.png)
 
 
 ## Build Setup
